@@ -1,0 +1,27 @@
+[project]
+name = "libTWLPy"
+version = "0.1.0"
+authors = [
+    { name="NinjaCheetah", email="ninjacheetah@ncxprogramming.com" },
+    { name="Lillian Skinner", email="lillian@randommeaninglesscharacters.com" }
+]
+description = "A modern Python library for handling files and formats used by the DSi. "
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "pycryptodome",
+    "requests"
+]
+
+[project.urls]
+Homepage = "https://github.com/NinjaCheetah/libTWLPy"
+Issues = "https://github.com/NinjaCheetah/libTWLPy/issues"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
