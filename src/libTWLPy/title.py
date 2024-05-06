@@ -6,19 +6,19 @@
 from .content import ContentRegion
 from .ticket import Ticket
 from .tmd import TMD
-from .wad import WAD
+from .tad import TAD
 
 
 class Title:
     """
     A Title object that contains all components of a title, and allows altering them. Provides higher-level access
-    than manually creating WAD, TMD, Ticket, and ContentRegion objects and ensures that any data that needs to match
+    than manually creating TAD, TMD, Ticket, and Content objects and ensures that any data that needs to match
     between files matches.
 
     Attributes
     ----------
-    wad : WAD
-        A WAD object of a WAD containing the title's data.
+    tad : TAD
+        A TAD object of a TAD containing the title's data.
     tmd : TMD
         A TMD object of the title's TMD.
     ticket : Ticket
@@ -27,61 +27,58 @@ class Title:
         A ContentRegion object containing the title's contents.
     """
     def __init__(self):
-        self.wad: WAD = WAD()
+        self.tad: TAD = TAD()
         self.tmd: TMD = TMD()
         self.ticket: Ticket = Ticket()
         self.content: ContentRegion = ContentRegion()
 
-    def load_wad(self, wad: bytes) -> None:
+    def load_tad(self, tad: bytes) -> None:
         """
         Load existing WAD data into the title and create WAD, TMD, Ticket, and ContentRegion objects based off of it
         to allow you to modify that data. Note that this will overwrite any existing data for this title.
 
         Parameters
         ----------
-        wad : bytes
+        tad : bytes
             The data for the WAD you wish to load.
         """
         # Create a new WAD object based on the WAD data provided.
-        self.wad = WAD()
-        self.wad.load(wad)
+        self.tad = TAD()
+        self.tad.load(tad)
         # Load the TMD.
         self.tmd = TMD()
-        self.tmd.load(self.wad.get_tmd_data())
+        self.tmd.load(self.tad.get_tmd_data())
         # Load the ticket.
         self.ticket = Ticket()
-        self.ticket.load(self.wad.get_ticket_data())
+        self.ticket.load(self.tad.get_ticket_data())
         # Load the content.
         self.content = ContentRegion()
-        self.content.load(self.wad.get_content_data(), self.tmd.content_records)
+        self.content.load(self.tad.get_content_data(), self.tmd.content_records)
         # Ensure that the Title IDs of the TMD and Ticket match before doing anything else. If they don't, throw an
         # error because clearly something strange has gone on with the WAD and editing it probably won't work.
         if self.tmd.title_id != self.ticket.title_id_str:
-            raise ValueError("The Title IDs of the TMD and Ticket in this WAD do not match. This WAD appears to be "
+            raise ValueError("The Title IDs of the TMD and Ticket in this TAD do not match. This TAD appears to be "
                              "invalid.")
 
-    def dump_wad(self) -> bytes:
+    def dump_tad(self) -> bytes:
         """
-        Dumps all title components (TMD, Ticket, and contents) back into the WAD object, and then dumps the WAD back
+        Dumps all title components (TMD, Ticket, and contents) back into the TAD object, and then dumps the TAD back
         into raw data and returns it.
 
         Returns
         -------
-        wad_data : bytes
-            The raw data of the WAD.
+        tad_data : bytes
+            The raw data of the TAD.
         """
-        # Set WAD type to ib if the title being packed is boot2.
-        if self.tmd.title_id == "0000000100000001":
-            self.wad.wad_type = "ib"
-        # Dump the TMD and set it in the WAD.
-        self.wad.set_tmd_data(self.tmd.dump())
-        # Dump the Ticket and set it in the WAD.
-        self.wad.set_ticket_data(self.ticket.dump())
-        # Dump the ContentRegion and set it in the WAD.
-        self.wad.set_content_data(self.content.dump())
-        # Dump the WAD with the new regions back into raw data and return it.
-        wad_data = self.wad.dump()
-        return wad_data
+        # Dump the TMD and set it in the TAD.
+        self.tad.set_tmd_data(self.tmd.dump())
+        # Dump the Ticket and set it in the TAD.
+        self.tad.set_ticket_data(self.ticket.dump())
+        # Dump the ContentRegion and set it in the TAD.
+        self.tad.set_content_data(self.content.dump())
+        # Dump the TAD with the new regions back into raw data and return it.
+        tad_data = self.tad.dump()
+        return tad_data
 
     def load_tmd(self, tmd: bytes) -> None:
         """
@@ -132,7 +129,7 @@ class Title:
         self.tmd.set_title_id(title_id)
         self.ticket.set_title_id(title_id)
 
-    def get_content_by_index(self, index: id) -> bytes:
+    def get_content(self, index: id) -> bytes:
         """
         Gets an individual content from the content region based on the provided index, in decrypted form.
 
@@ -149,27 +146,7 @@ class Title:
         # Load the Title Key from the Ticket.
         title_key = self.ticket.get_title_key()
         # Get the decrypted content and return it.
-        dec_content = self.content.get_content_by_index(index, title_key)
-        return dec_content
-
-    def get_content_by_cid(self, cid: int) -> bytes:
-        """
-        Gets an individual content from the content region based on the provided Content ID, in decrypted form.
-
-        Parameters
-        ----------
-        cid : int
-            The Content ID of the content you want to get. Expected to be in decimal form.
-
-        Returns
-        -------
-        bytes
-            The decrypted content listed in the content record.
-        """
-        # Load the Title Key from the Ticket.
-        title_key = self.ticket.get_title_key()
-        # Get the decrypted content and return it.
-        dec_content = self.content.get_content_by_cid(cid, title_key)
+        dec_content = self.content.get_content(index, title_key)
         return dec_content
 
     def set_enc_content(self, enc_content: bytes, cid: int, index: int, content_type: int, content_size: int,

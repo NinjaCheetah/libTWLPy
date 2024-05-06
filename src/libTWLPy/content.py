@@ -13,7 +13,7 @@ from .crypto import decrypt_content, encrypt_content
 
 class ContentRegion:
     """
-    A ContentRegion object to parse the continuous content region of a WAD. Allows for retrieving content from the
+    A ContentRegion object to parse the continuous content region of a TAD. Allows for retrieving content from the
     region in both encrypted or decrypted form, and setting new content.
 
     Attributes
@@ -77,7 +77,7 @@ class ContentRegion:
         Returns
         -------
         bytes
-            The full WAD file as bytes.
+            The content region of a TAD as bytes.
         """
         # Open the stream and begin writing data to it.
         with io.BytesIO() as content_region_data:
@@ -95,7 +95,7 @@ class ContentRegion:
         # Return the raw ContentRegion for the data contained in the object.
         return content_region_raw
 
-    def get_enc_content_by_index(self, index: int) -> bytes:
+    def get_enc_content(self, index: int) -> bytes:
         """
         Gets an individual content from the content region based on the provided index, in encrypted form.
 
@@ -112,45 +112,7 @@ class ContentRegion:
         content_enc = self.content_list[index]
         return content_enc
 
-    def get_enc_content_by_cid(self, cid: int) -> bytes:
-        """
-        Gets an individual content from the content region based on the provided Content ID, in encrypted form.
-
-        Parameters
-        ----------
-        cid : int
-            The Content ID of the content you want to get. Expected to be in decimal form.
-
-        Returns
-        -------
-        bytes
-            The encrypted content listed in the content record.
-        """
-        # Find the index of the requested Content ID.
-        content_index = None
-        for content in self.content_records:
-            if content.content_id == cid:
-                content_index = content.index
-        # If finding a matching ID was unsuccessful, that means that no content with that ID is in the TMD, so
-        # return a Value Error.
-        if content_index is None:
-            raise ValueError("The Content ID requested does not exist in the TMD's content records.")
-        # Call get_enc_content_by_index() using the index we just found.
-        content_enc = self.get_enc_content_by_index(content_index)
-        return content_enc
-
-    def get_enc_contents(self) -> List[bytes]:
-        """
-        Gets a list of all encrypted contents from the content region.
-
-        Returns
-        -------
-        List[bytes]
-            A list containing all encrypted contents.
-        """
-        return self.content_list
-
-    def get_content_by_index(self, index: int, title_key: bytes) -> bytes:
+    def get_content(self, index: int, title_key: bytes) -> bytes:
         """
         Gets an individual content from the content region based on the provided index, in decrypted form.
 
@@ -167,7 +129,7 @@ class ContentRegion:
             The decrypted content listed in the content record.
         """
         # Load the encrypted content at the specified index and then decrypt it with the Title Key.
-        content_enc = self.get_enc_content_by_index(index)
+        content_enc = self.get_enc_content(index)
         content_dec = decrypt_content(content_enc, title_key, self.content_records[index].index,
                                       self.content_records[index].content_size)
         # Hash the decrypted content and ensure that the hash matches the one in its Content Record.
@@ -181,55 +143,6 @@ class ContentRegion:
                              "Expected hash is: {}\n".format(content_record_hash) +
                              "Actual hash is: {}".format(content_dec_hash))
         return content_dec
-
-    def get_content_by_cid(self, cid: int, title_key: bytes) -> bytes:
-        """
-        Gets an individual content from the content region based on the provided Content ID, in decrypted form.
-
-        Parameters
-        ----------
-        cid : int
-            The Content ID of the content you want to get. Expected to be in decimal form.
-        title_key : bytes
-            The Title Key for the title the content is from.
-
-        Returns
-        -------
-        bytes
-            The decrypted content listed in the content record.
-        """
-        # Find the index of the requested Content ID.
-        content_index = None
-        for content in self.content_records:
-            if content.content_id == cid:
-                content_index = content.index
-        # If finding a matching ID was unsuccessful, that means that no content with that ID is in the TMD, so
-        # return a Value Error.
-        if content_index is None:
-            raise ValueError("The Content ID requested does not exist in the TMD's content records.")
-        # Call get_content_by_index() using the index we just found.
-        content_dec = self.get_content_by_index(content_index, title_key)
-        return content_dec
-
-    def get_contents(self, title_key: bytes) -> List[bytes]:
-        """
-        Gets a list of all contents from the content region, in decrypted form.
-
-        Parameters
-        ----------
-        title_key : bytes
-            The Title Key for the title the content is from.
-
-        Returns
-        -------
-        List[bytes]
-            A list containing all decrypted contents.
-        """
-        dec_contents: List[bytes] = []
-        # Iterate over every content, get the decrypted version of it, then add it to a list and return it.
-        for content in range(self.num_contents):
-            dec_contents.append(self.get_content_by_index(content, title_key))
-        return dec_contents
 
     def set_enc_content(self, enc_content: bytes, cid: int, index: int, content_type: int, content_size: int,
                         content_hash: bytes) -> None:

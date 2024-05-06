@@ -18,8 +18,6 @@ class Ticket:
     ----------
     signature : bytes
         The signature applied to the ticket.
-    ticket_version : int
-        The version of the ticket.
     title_key_enc : bytes
         The Title Key contained in the ticket, in encrypted form.
     ticket_id : bytes
@@ -38,7 +36,6 @@ class Ticket:
         # v0 ticket data
         self.signature_issuer: str = ""  # Who issued the signature for the ticket
         self.ecdh_data: bytes = b''  # Involved in created one-time keys for console-specific title installs.
-        self.ticket_version: int = 0  # The version of the current ticket file.
         self.title_key_enc: bytes = b''  # The title key of the ticket's respective title, encrypted by a common key.
         self.ticket_id: bytes = b''  # Used as the IV when decrypting the title key for console-specific title installs.
         self.console_id: int = 0  # ID of the console that the ticket was issued for.
@@ -82,12 +79,6 @@ class Ticket:
             # ECDH data.
             ticket_data.seek(0x180)
             self.ecdh_data = ticket_data.read(60)
-            # Ticket version.
-            ticket_data.seek(0x1BC)
-            self.ticket_version = int.from_bytes(ticket_data.read(1))
-            if self.ticket_version == 1:
-                raise ValueError("This appears to be a v1 ticket, which is not currently supported by libTWLPy. This "
-                                 "feature is planned for a later release. Only v0 tickets are supported at this time.")
             # Title Key (Encrypted by a common key).
             ticket_data.seek(0x1BF)
             self.title_key_enc = ticket_data.read(16)
@@ -159,7 +150,7 @@ class Ticket:
             # ECDH data.
             ticket_data.write(self.ecdh_data)
             # Ticket version.
-            ticket_data.write(int.to_bytes(self.ticket_version, 1))
+            ticket_data.write(b'\x00')
             # Reserved (all \0x00).
             ticket_data.write(b'\x00\x00')
             # Title Key.
@@ -264,6 +255,6 @@ class Ticket:
             The new Title ID of the title.
         """
         if len(title_id) != 16:
-            raise ValueError("Invalid Title ID! Title IDs must be 8 bytes long.")
+            raise ValueError("Invalid Title ID! Title IDs must be 16 characters long.")
         self.title_id_str = title_id
         self.title_id = binascii.unhexlify(title_id)

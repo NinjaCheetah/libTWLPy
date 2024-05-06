@@ -3,16 +3,16 @@
 
 import binascii
 
-common_key = 'ebe42a225e8593e448d9c5457381aaf7'
-korean_key = '63b82bb4f4614e2e13f2fefbba4c9b7e'
-vwii_key = '30bfc76e7c19afbb23163330ced7c28d'
+prod_key = 'af1bf516a807d21aea45984f04742861'
+dev_key = 'a1604a6a7123b529ae8bec32c816fcaa'
+debug_key = 'a2fdddf2e423574ae7ed8657b5ab19d3'
 
 
 def get_common_key(common_key_index) -> bytes:
     """
-    Gets the specified Wii Common Key based on the index provided.
+    Gets the specified DSi Common Key based on the index provided.
 
-    Possible values for common_key_index: 0: Common Key, 1: Korean Key, 2: vWii Key
+    Possible values for common_key_index: 0: Production Key, 1: Development Key, 2: Debugger Key
 
     Parameters
     ----------
@@ -26,11 +26,11 @@ def get_common_key(common_key_index) -> bytes:
     """
     match common_key_index:
         case 0:
-            common_key_bin = binascii.unhexlify(common_key)
+            common_key_bin = binascii.unhexlify(prod_key)
         case 1:
-            common_key_bin = binascii.unhexlify(korean_key)
+            common_key_bin = binascii.unhexlify(dev_key)
         case 2:
-            common_key_bin = binascii.unhexlify(vwii_key)
+            common_key_bin = binascii.unhexlify(debug_key)
         case _:
             raise ValueError("The common key index provided, " + str(common_key_index) + ", does not exist.")
     return common_key_bin
