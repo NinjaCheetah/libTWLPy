@@ -6,8 +6,6 @@
 import io
 import binascii
 from .crypto import decrypt_title_key
-from .types import TitleLimit
-from typing import List
 
 
 class Ticket:
@@ -49,7 +47,6 @@ class Ticket:
         self.common_key_index: int = 0  # Which common key should be used. 0 = Common Key, 1 = Korean Key, 2 = vWii Key
         self.unknown2: bytes = b''  # More unknown data. Varies for VC/non-VC titles so reading it to ensure it matches.
         self.content_access_permissions: bytes = b''  # "Content access permissions (one bit for each content)"
-        self.title_limits_list: List[TitleLimit] = []  # List of play limits applied to the title.
         # v1 ticket data
         # TODO: Write in v1 ticket attributes here. This code can currently only handle v0 tickets, and will reject v1.
 
@@ -120,12 +117,6 @@ class Ticket:
             # Content access permissions.
             ticket_data.seek(0x222)
             self.content_access_permissions = ticket_data.read(64)
-            # Content limits.
-            ticket_data.seek(0x264)
-            for limit in range(0, 8):
-                limit_type = int.from_bytes(ticket_data.read(4))
-                limit_value = int.from_bytes(ticket_data.read(4))
-                self.title_limits_list.append(TitleLimit(limit_type, limit_value))
 
     def dump(self) -> bytes:
         """
@@ -183,12 +174,8 @@ class Ticket:
         ticket_data += self.content_access_permissions
         # Padding (always \x00).
         ticket_data += b'\x00\x00'
-        # Iterate over Title Limit objects, write them back into raw data, then add them to the Ticket.
-        for title_limit in range(len(self.title_limits_list)):
-            title_limit_data = b''
-            # Write all fields from the title limit entry.
-            title_limit_data += int.to_bytes(self.title_limits_list[title_limit].limit_type, 4)
-            title_limit_data += int.to_bytes(self.title_limits_list[title_limit].maximum_usage, 4)
+        # Lots of \x00 bytes where title limits would go (which don't exist on DSi).
+        ticket_data += b'\x00' * 64
         # Return the raw TMD for the data contained in the object.
         return ticket_data
 

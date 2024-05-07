@@ -92,7 +92,7 @@ def decrypt_content(content_enc, title_key, content_length) -> bytes:
         The decrypted content.
     """
     # TADs only have one content, so the IV is always all 0 bytes.
-    content_iv = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+    content_iv = b'\x00' * 16
     # Align content to 16 bytes to ensure that it works with AES encryption.
     if (len(content_enc) % 16) != 0:
         content_enc = content_enc + (b'\x00' * (16 - (len(content_enc) % 16)))
@@ -122,7 +122,7 @@ def encrypt_content(content_dec, title_key) -> bytes:
         The encrypted content.
     """
     # TADs only have one content, so the IV is always all 0 bytes.
-    content_iv = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+    content_iv = b'\x00' * 16
     # Calculate the intended size of the encrypted content.
     enc_size = len(content_dec) + (16 - (len(content_dec) % 16))
     # Align content to 16 bytes to ensure that it works with AES encryption.
