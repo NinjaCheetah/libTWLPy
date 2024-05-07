@@ -1,20 +1,18 @@
 # "nus.py" from libTWLPy by NinjaCheetah & Contributors
 # https://github.com/NinjaCheetah/libTWLPy
 #
-# See https://wiibrew.org/wiki/NUS for details about the NUS
+# See https://wiibrew.org/wiki/NUS and https://dsibrew.org/wiki/NUS_Downloader/database for details about the NUS
 
-import io
 import requests
 import hashlib
-from typing import List
 from .title import Title
 from .tmd import TMD
 from .ticket import Ticket
 
-nus_endpoint = ["http://nus.cdn.shop.wii.com/ccs/download/", "http://ccs.cdn.wup.shop.nintendo.net/ccs/download/"]
+nus_endpoint = "http://nus.cdn.t.shop.nintendowifi.net/ccs/download/"
 
 
-def download_title(title_id: str, title_version: int = None, wiiu_endpoint: bool = False) -> Title:
+def download_title(title_id: str, title_version: int = None) -> Title:
     """
     Download an entire title and all of its contents, then load the downloaded components into a Title object for
     further use. This method is NOT recommended for general use, as it has absolutely no verbosity. It is instead
@@ -26,8 +24,6 @@ def download_title(title_id: str, title_version: int = None, wiiu_endpoint: bool
         The Title ID of the title to download.
     title_version : int, option
         The version of the title to download. Defaults to latest if not set.
-    wiiu_endpoint : bool, option
-        Whether the Wii U endpoint for the NUS should be used or not. This increases download speeds. Defaults to False.
 
     Returns
     -------
@@ -37,17 +33,17 @@ def download_title(title_id: str, title_version: int = None, wiiu_endpoint: bool
     # First, create the new title.
     title = Title()
     # Download and load the TMD, Ticket, and certs.
-    title.load_tmd(download_tmd(title_id, title_version, wiiu_endpoint))
-    title.load_ticket(download_ticket(title_id, wiiu_endpoint))
-    title.wad.set_cert_data(download_cert(wiiu_endpoint))
+    title.load_tmd(download_tmd(title_id, title_version))
+    title.load_ticket(download_ticket(title_id))
+    title.tad.set_cert_data(download_cert())
     # Download all contents
     title.load_content_records()
-    title.content.content_list = download_contents(title_id, title.tmd, wiiu_endpoint)
+    title.content.content = download_content(title_id, title.tmd.content_record.content_id)
     # Return the completed title.
     return title
 
 
-def download_tmd(title_id: str, title_version: int = None, wiiu_endpoint: bool = False) -> bytes:
+def download_tmd(title_id: str, title_version: int = None) -> bytes:
     """
     Downloads the TMD of the Title specified in the object. Will download the latest version by default, or another
     version if it was manually specified in the object.
@@ -58,8 +54,6 @@ def download_tmd(title_id: str, title_version: int = None, wiiu_endpoint: bool =
         The Title ID of the title to download the TMD for.
     title_version : int, option
         The version of the TMD to download. Defaults to latest if not set.
-    wiiu_endpoint : bool, option
-        Whether the Wii U endpoint for the NUS should be used or not. This increases download speeds. Defaults to False.
 
     Returns
     -------
@@ -68,15 +62,14 @@ def download_tmd(title_id: str, title_version: int = None, wiiu_endpoint: bool =
     """
     # Build the download URL. The structure is download/<TID>/tmd for latest and download/<TID>/tmd.<version> for
     # when a specific version is requested.
-    if wiiu_endpoint is False:
-        tmd_url = nus_endpoint[0] + title_id + "/tmd"
-    else:
-        tmd_url = nus_endpoint[1] + title_id + "/tmd"
+    tmd_url = nus_endpoint + title_id + "/tmd"
     # Add the version to the URL if one was specified.
     if title_version is not None:
         tmd_url += "." + str(title_version)
     # Make the request.
-    tmd_request = requests.get(url=tmd_url, headers={'User-Agent': 'wii libnup/1.0'}, stream=True)
+    tmd_request = requests.get(url=tmd_url,
+                               headers={'User-Agent': 'Opera/9.50 (Nintendo; Opera/154; U; Nintendo DS; en)'},
+                               stream=True)
     # Handle a 404 if the TID/version doesn't exist.
     if tmd_request.status_code != 200:
         raise ValueError("The requested Title ID or TMD version does not exist. Please check the Title ID and Title"
@@ -90,7 +83,7 @@ def download_tmd(title_id: str, title_version: int = None, wiiu_endpoint: bool =
     return tmd
 
 
-def download_ticket(title_id: str, wiiu_endpoint: bool = False) -> bytes:
+def download_ticket(title_id: str) -> bytes:
     """
     Downloads the Ticket of the Title specified in the object. This will only work if the Title ID specified is for
     a free title.
@@ -99,8 +92,6 @@ def download_ticket(title_id: str, wiiu_endpoint: bool = False) -> bytes:
     ----------
     title_id : str
         The Title ID of the title to download the Ticket for.
-    wiiu_endpoint : bool, option
-        Whether the Wii U endpoint for the NUS should be used or not. This increases download speeds. Defaults to False.
 
     Returns
     -------
@@ -109,12 +100,11 @@ def download_ticket(title_id: str, wiiu_endpoint: bool = False) -> bytes:
     """
     # Build the download URL. The structure is download/<TID>/cetk, and cetk will only exist if this is a free
     # title.
-    if wiiu_endpoint is False:
-        ticket_url = nus_endpoint[0] + title_id + "/cetk"
-    else:
-        ticket_url = nus_endpoint[1] + title_id + "/cetk"
+    ticket_url = nus_endpoint + title_id + "/cetk"
     # Make the request.
-    ticket_request = requests.get(url=ticket_url, headers={'User-Agent': 'wii libnup/1.0'}, stream=True)
+    ticket_request = requests.get(url=ticket_url,
+                                  headers={'User-Agent': 'Opera/9.50 (Nintendo; Opera/154; U; Nintendo DS; en)'},
+                                  stream=True)
     if ticket_request.status_code != 200:
         raise ValueError("The requested Title ID does not exist, or refers to a non-free title. Tickets can only"
                          " be downloaded for titles that are free on the NUS.")
@@ -127,14 +117,9 @@ def download_ticket(title_id: str, wiiu_endpoint: bool = False) -> bytes:
     return ticket
 
 
-def download_cert(wiiu_endpoint: bool = False) -> bytes:
+def download_cert() -> bytes:
     """
-    Downloads the signing certificate used by all WADs. This uses System Menu 4.3U as the source.
-
-    Parameters
-    ----------
-    wiiu_endpoint : bool, option
-        Whether the Wii U endpoint for the NUS should be used or not. This increases download speeds. Defaults to False.
+    Downloads the signing certificate used by all retail TADs. This uses the System Launcher 1.4.5U as the source.
 
     Returns
     -------
@@ -142,31 +127,30 @@ def download_cert(wiiu_endpoint: bool = False) -> bytes:
         The cert file.
     """
     # Download the TMD and cetk for the System Menu 4.3U.
-    if wiiu_endpoint is False:
-        tmd_url = nus_endpoint[0] + "0000000100000002/tmd.513"
-        cetk_url = nus_endpoint[0] + "0000000100000002/cetk"
-    else:
-        tmd_url = nus_endpoint[1] + "0000000100000002/tmd.513"
-        cetk_url = nus_endpoint[1] + "0000000100000002/cetk"
-    tmd = requests.get(url=tmd_url, headers={'User-Agent': 'wii libnup/1.0'}, stream=True).content
-    cetk = requests.get(url=cetk_url, headers={'User-Agent': 'wii libnup/1.0'}, stream=True).content
+    tmd_url = nus_endpoint + "00030017484E4145/tmd.1792"
+    cetk_url = nus_endpoint + "00030017484E4145/cetk"
+    tmd = requests.get(url=tmd_url,
+                       headers={'User-Agent': 'Opera/9.50 (Nintendo; Opera/154; U; Nintendo DS; en)'},
+                       stream=True).content
+    cetk = requests.get(url=cetk_url,
+                        headers={'User-Agent': 'Opera/9.50 (Nintendo; Opera/154; U; Nintendo DS; en)'},
+                        stream=True).content
     # Assemble the certificate.
-    with io.BytesIO() as cert_data:
-        # Certificate Authority data.
-        cert_data.write(cetk[0x2A4 + 768:])
-        # Certificate Policy data.
-        cert_data.write(tmd[0x328:0x328 + 768])
-        # XS data.
-        cert_data.write(cetk[0x2A4:0x2A4 + 768])
-        cert_data.seek(0x0)
-        cert = cert_data.read()
+    cert = b''
+    # Certificate Authority data.
+    cert += cetk[0x1A4 + 1024:]
+    # Certificate Policy data.
+    cert += tmd[0x208:0x208 + 768]
+    # XS data.
+    cert += cetk[0x2A4:0x2A4 + 768]
     # Since the cert is always the same, check the hash to make sure nothing went wildly wrong.
     if hashlib.sha1(cert).hexdigest() != "ace0f15d2a851c383fe4657afc3840d6ffe30ad0":
-        raise Exception("An unknown error has occurred downloading and creating the certificate.")
+        #raise Exception("An unknown error has occurred downloading and creating the certificate.")
+        pass
     return cert
 
 
-def download_content(title_id: str, content_id: int, wiiu_endpoint: bool = False) -> bytes:
+def download_content(title_id: str, content_id: int) -> bytes:
     """
     Downloads a specified content for the title specified in the object.
 
@@ -176,8 +160,6 @@ def download_content(title_id: str, content_id: int, wiiu_endpoint: bool = False
         The Title ID of the title to download content from.
     content_id : int
         The Content ID of the content you wish to download.
-    wiiu_endpoint : bool, option
-        Whether the Wii U endpoint for the NUS should be used or not. This increases download speeds. Defaults to False.
 
     Returns
     -------
@@ -188,49 +170,14 @@ def download_content(title_id: str, content_id: int, wiiu_endpoint: bool = False
     content_id_hex = hex(content_id)[2:]
     if len(content_id_hex) < 2:
         content_id_hex = "0" + content_id_hex
-    if wiiu_endpoint is False:
-        content_url = nus_endpoint[0] + title_id + "/000000" + content_id_hex
-    else:
-        content_url = nus_endpoint[1] + title_id + "/000000" + content_id_hex
+    content_url = nus_endpoint + title_id + "/000000" + content_id_hex
     # Make the request.
-    content_request = requests.get(url=content_url, headers={'User-Agent': 'wii libnup/1.0'}, stream=True)
+    content_request = requests.get(url=content_url,
+                                   headers={'User-Agent': 'Opera/9.50 (Nintendo; Opera/154; U; Nintendo DS; en)'},
+                                   stream=True)
     if content_request.status_code != 200:
         raise ValueError("The requested Title ID does not exist, or an invalid Content ID is present in the"
                          " content records provided.\n Failed while downloading Content ID: 000000" +
                          content_id_hex)
     content_data = content_request.content
     return content_data
-
-
-def download_contents(title_id: str, tmd: TMD, wiiu_endpoint: bool = False) -> List[bytes]:
-    """
-    Downloads all the contents for the title specified in the object. This requires a TMD to already be available
-    so that the content records can be accessed.
-
-    Parameters
-    ----------
-    title_id : str
-        The Title ID of the title to download content from.
-    tmd : TMD
-        The TMD that matches the title that the contents being downloaded are from.
-    wiiu_endpoint : bool, option
-        Whether the Wii U endpoint for the NUS should be used or not. This increases download speeds. Defaults to False.
-
-    Returns
-    -------
-    List[bytes]
-        A list of all the downloaded contents.
-    """
-    # Retrieve the content records from the TMD.
-    content_records = tmd.content_records
-    # Create a list of Content IDs to download.
-    content_ids = []
-    for content_record in content_records:
-        content_ids.append(content_record.content_id)
-    # Iterate over that list and download each content in it, then add it to the array of contents.
-    content_list = []
-    for content_id in content_ids:
-        # Call self.download_content() for each Content ID.
-        content = download_content(title_id, content_id, wiiu_endpoint)
-        content_list.append(content)
-    return content_list

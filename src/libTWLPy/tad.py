@@ -6,7 +6,7 @@
 
 import io
 import binascii
-from .shared import align_value, pad_bytes_stream
+from .shared import align_value, pad_bytes
 
 
 class TAD:
@@ -135,50 +135,46 @@ class TAD:
         bytes
             The full TAD file as bytes.
         """
-        # Open the stream and begin writing data to it.
-        with io.BytesIO() as tad_data:
-            # Lead-in data.
-            tad_data.write(b'\x00\x00\x00\x20')
-            # TAD type.
-            tad_data.write(b'\x49\x73')
-            # TAD version.
-            tad_data.write(self.tad_version)
-            # TAD cert size.
-            tad_data.write(int.to_bytes(self.tad_cert_size, 4))
-            # TAD crl size.
-            tad_data.write(int.to_bytes(self.tad_crl_size, 4))
-            # TAD ticket size.
-            tad_data.write(int.to_bytes(self.tad_tik_size, 4))
-            # TAD TMD size.
-            tad_data.write(int.to_bytes(self.tad_tmd_size, 4))
-            # TAD content size.
-            tad_data.write(int.to_bytes(self.tad_content_size, 4))
-            # TAD meta size.
-            tad_data.write(int.to_bytes(self.tad_meta_size, 4))
-            tad_data = pad_bytes_stream(tad_data)
-            # Retrieve the cert data and write it out.
-            tad_data.write(self.get_cert_data())
-            tad_data = pad_bytes_stream(tad_data)
-            # Retrieve the crl data and write it out.
-            tad_data.write(self.get_crl_data())
-            tad_data = pad_bytes_stream(tad_data)
-            # Retrieve the ticket data and write it out.
-            tad_data.write(self.get_ticket_data())
-            tad_data = pad_bytes_stream(tad_data)
-            # Retrieve the TMD data and write it out.
-            tad_data.write(self.get_tmd_data())
-            tad_data = pad_bytes_stream(tad_data)
-            # Retrieve the meta/footer data and write it out.
-            tad_data.write(self.get_meta_data())
-            tad_data = pad_bytes_stream(tad_data)
-            # Retrieve the content data and write it out.
-            tad_data.write(self.get_content_data())
-            tad_data = pad_bytes_stream(tad_data)
-            # Seek to the beginning and save this as the WAD data for the object.
-            tad_data.seek(0x0)
-            tad_data_raw = tad_data.read()
+        tad_data = b''
+        # Lead-in data.
+        tad_data += b'\x00\x00\x00\x20'
+        # TAD type.
+        tad_data += b'\x49\x73'
+        # TAD version.
+        tad_data += self.tad_version
+        # TAD cert size.
+        tad_data += int.to_bytes(self.tad_cert_size, 4)
+        # TAD crl size.
+        tad_data += int.to_bytes(self.tad_crl_size, 4)
+        # TAD ticket size.
+        tad_data += int.to_bytes(self.tad_tik_size, 4)
+        # TAD TMD size.
+        tad_data += int.to_bytes(self.tad_tmd_size, 4)
+        # TAD content size.
+        tad_data += int.to_bytes(self.tad_content_size, 4)
+        # TAD meta size.
+        tad_data += int.to_bytes(self.tad_meta_size, 4)
+        tad_data = pad_bytes(tad_data)
+        # Retrieve the cert data and write it out.
+        tad_data += self.get_cert_data()
+        tad_data = pad_bytes(tad_data)
+        # Retrieve the crl data and write it out.
+        tad_data += self.get_crl_data()
+        tad_data = pad_bytes(tad_data)
+        # Retrieve the ticket data and write it out.
+        tad_data += self.get_ticket_data()
+        tad_data = pad_bytes(tad_data)
+        # Retrieve the TMD data and write it out.
+        tad_data += self.get_tmd_data()
+        tad_data = pad_bytes(tad_data)
+        # Retrieve the meta/footer data and write it out.
+        tad_data += self.get_meta_data()
+        tad_data = pad_bytes(tad_data)
+        # Retrieve the content data and write it out.
+        tad_data += self.get_content_data()
+        tad_data = pad_bytes(tad_data)
         # Return the raw TAD file for the data contained in the object.
-        return tad_data_raw
+        return tad_data
 
     def get_cert_data(self) -> bytes:
         """

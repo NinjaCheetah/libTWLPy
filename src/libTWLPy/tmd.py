@@ -6,7 +6,6 @@
 import io
 import binascii
 import struct
-from typing import List
 from .types import ContentRecord
 
 
@@ -26,8 +25,6 @@ class TMD:
         The title ID of the IOS the title runs on.
     ios_version : int
         The IOS version the title runs on.
-    num_contents : int
-        The number of contents listed in the TMD.
     """
     def __init__(self):
         self.blob_header: bytes = b''
@@ -50,11 +47,12 @@ class TMD:
         self.title_version: int = 0  # The version of the associated title.
         self.num_contents: int = 0  # The number of contents contained in the associated title.
         self.boot_index: int = 0
-        self.content_records: List[ContentRecord] = []
+        self.content_record = None
+        self.content_record: ContentRecord
 
     def load(self, tmd: bytes) -> None:
         """
-        Loads raw TMD data and sets all attributes of the WAD object. This allows for manipulating an already
+        Loads raw TMD data and sets all attributes of the TMD object. This allows for manipulating an already
         existing TMD.
 
         Parameters
@@ -129,14 +127,11 @@ class TMD:
             tmd_data.seek(0x1E0)
             self.boot_index = int.from_bytes(tmd_data.read(2))
             # Get content records for the number of contents in num_contents.
-            self.content_records = []
-            for content in range(0, self.num_contents):
-                tmd_data.seek(0x1E4 + (36 * content))
-                content_record_hdr = struct.unpack(">LHH4x4s20s", tmd_data.read(36))
-                self.content_records.append(
-                    ContentRecord(int(content_record_hdr[0]), int(content_record_hdr[1]),
-                                  int(content_record_hdr[2]), int.from_bytes(content_record_hdr[3]),
-                                  binascii.hexlify(content_record_hdr[4])))
+            tmd_data.seek(0x1E4)
+            content_record_raw = struct.unpack(">LHH4x4s20s", tmd_data.read(36))
+            self.content_record = ContentRecord(int(content_record_raw[0]), int(content_record_raw[1]),
+                                                int(content_record_raw[2]), int.from_bytes(content_record_raw[3]),
+                                                binascii.hexlify(content_record_raw[4]))
 
     def dump(self) -> bytes:
         """
@@ -148,71 +143,60 @@ class TMD:
         bytes
             The full TMD file as bytes.
         """
-        # Open the stream and begin writing to it.
-        with io.BytesIO() as tmd_data:
-            # Signed blob header.
-            tmd_data.write(self.blob_header)
-            # Signing certificate issuer.
-            tmd_data.write(self.issuer)
-            # TMD version.
-            tmd_data.write(int.to_bytes(self.tmd_version, 1))
-            # Root certificate crl version.
-            tmd_data.write(int.to_bytes(self.ca_crl_version, 1))
-            # Signer crl version.
-            tmd_data.write(int.to_bytes(self.signer_crl_version, 1))
-            # If this is a vWii title or not.
-            tmd_data.write(int.to_bytes(self.vwii, 1))
-            # IOS Title ID.
-            tmd_data.write(binascii.unhexlify(self.ios_tid))
-            # Title's Title ID.
-            tmd_data.write(binascii.unhexlify(self.title_id))
-            # Content type.
-            tmd_data.write(binascii.unhexlify(self.content_type))
-            # Group ID.
-            tmd_data.write(int.to_bytes(self.group_id, 2))
-            # 2 bytes of zero for reasons.
-            tmd_data.write(b'\x00\x00')
-            # Region.
-            tmd_data.write(int.to_bytes(self.region, 2))
-            # Ratings.
-            tmd_data.write(self.ratings)
-            # Reserved (all \x00).
-            tmd_data.write(b'\x00' * 12)
-            # IPC mask.
-            tmd_data.write(self.ipc_mask)
-            # Reserved (all \x00).
-            tmd_data.write(b'\x00' * 18)
-            # Access rights.
-            tmd_data.write(self.access_rights)
-            # Title version.
-            title_version_high = round(self.title_version / 256)
-            tmd_data.write(int.to_bytes(title_version_high, 1))
-            title_version_low = self.title_version % 256
-            tmd_data.write(int.to_bytes(title_version_low, 1))
-            # Number of contents.
-            tmd_data.write(int.to_bytes(self.num_contents, 2))
-            # Boot index.
-            tmd_data.write(int.to_bytes(self.boot_index, 2))
-            # Minor version. Unused so write \x00.
-            tmd_data.write(b'\x00\x00')
-            # Iterate over content records, write them back into raw data, then add them to the TMD.
-            for content_record in range(self.num_contents):
-                content_data = io.BytesIO()
-                # Write all fields from the content record.
-                content_data.write(int.to_bytes(self.content_records[content_record].content_id, 4))
-                content_data.write(int.to_bytes(self.content_records[content_record].index, 2))
-                content_data.write(int.to_bytes(self.content_records[content_record].content_type, 2))
-                content_data.write(int.to_bytes(self.content_records[content_record].content_size, 8))
-                content_data.write(binascii.unhexlify(self.content_records[content_record].content_hash))
-                # Seek to the start and write the record to the TMD.
-                content_data.seek(0x0)
-                tmd_data.write(content_data.read())
-                content_data.close()
-            # Set the TMD attribute of the object to the new raw TMD.
-            tmd_data.seek(0x0)
-            tmd_data_raw = tmd_data.read()
+        tmd_data = b''
+        # Signed blob header.
+        tmd_data += self.blob_header
+        # Signing certificate issuer.
+        tmd_data += self.issuer
+        # TMD version.
+        tmd_data += int.to_bytes(self.tmd_version, 1)
+        # Root certificate crl version.
+        tmd_data += int.to_bytes(self.ca_crl_version, 1)
+        # Signer crl version.
+        tmd_data += int.to_bytes(self.signer_crl_version, 1)
+        # If this is a vWii title or not.
+        tmd_data += int.to_bytes(self.vwii, 1)
+        # IOS Title ID.
+        tmd_data += binascii.unhexlify(self.ios_tid)
+        # Title's Title ID.
+        tmd_data += binascii.unhexlify(self.title_id)
+        # Content type.
+        tmd_data += binascii.unhexlify(self.content_type)
+        # Group ID.
+        tmd_data += int.to_bytes(self.group_id, 2)
+        # 2 bytes of zero for reasons.
+        tmd_data += b'\x00\x00'
+        # Region.
+        tmd_data += int.to_bytes(self.region, 2)
+        # Ratings.
+        tmd_data += self.ratings
+        # Reserved (all \x00).
+        tmd_data += b'\x00' * 12
+        # IPC mask.
+        tmd_data += self.ipc_mask
+        # Reserved (all \x00).
+        tmd_data += b'\x00' * 1
+        # Access rights.
+        tmd_data += self.access_rights
+        # Title version.
+        title_version_high = round(self.title_version / 256)
+        tmd_data += int.to_bytes(title_version_high, 1)
+        title_version_low = self.title_version % 256
+        tmd_data += int.to_bytes(title_version_low, 1)
+        # Number of contents.
+        tmd_data += int.to_bytes(self.num_contents, 2)
+        # Boot index.
+        tmd_data += int.to_bytes(self.boot_index, 2)
+        # Minor version. Unused so write \x00.
+        tmd_data += b'\x00\x00'
+        # Write all fields from the content record.
+        tmd_data += int.to_bytes(self.content_record.content_id, 4)
+        tmd_data += int.to_bytes(self.content_record.index, 2)
+        tmd_data += int.to_bytes(self.content_record.content_type, 2)
+        tmd_data += int.to_bytes(self.content_record.content_size, 8)
+        tmd_data += binascii.unhexlify(self.content_record.content_hash)
         # Return the raw TMD for the data contained in the object.
-        return tmd_data_raw
+        return tmd_data
 
     def get_title_region(self) -> str:
         """
@@ -237,20 +221,6 @@ class TMD:
                 return "NONE"
             case 4:
                 return "KOR"
-
-    def get_is_vwii_title(self) -> bool:
-        """
-        Gets whether the TMD is designed for the vWii or not.
-
-        Returns
-        -------
-        bool
-            If the title is for vWii.
-        """
-        if self.vwii == 1:
-            return True
-        else:
-            return False
 
     def get_title_type(self) -> str:
         """
@@ -308,36 +278,3 @@ class TMD:
                 return "Shared"
             case _:
                 return "Unknown"
-
-    def get_content_record(self, record) -> ContentRecord:
-        """
-        Gets the content record at the specified index.
-
-        Parameters
-        ----------
-        record : int
-            The content record to be retrieved.
-
-        Returns
-        -------
-        ContentRecord
-            A ContentRecord object containing the data in the content record.
-        """
-        if record < self.num_contents:
-            return self.content_records[record]
-        else:
-            raise IndexError("Invalid content record! TMD lists '" + str(self.num_contents - 1) +
-                             "' contents but index was '" + str(record) + "'!")
-
-    def set_title_id(self, title_id) -> None:
-        """
-        Sets the Title ID of the title in the ticket.
-
-        Parameters
-        ----------
-        title_id : str
-            The new Title ID of the title.
-        """
-        if len(title_id) != 16:
-            raise ValueError("Invalid Title ID! Title IDs must be 8 bytes long.")
-        self.title_id = title_id
