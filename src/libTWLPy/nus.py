@@ -144,9 +144,8 @@ def download_cert() -> bytes:
     # XS data.
     cert += cetk[0x2A4:0x2A4 + 768]
     # Since the cert is always the same, check the hash to make sure nothing went wildly wrong.
-    if hashlib.sha1(cert).hexdigest() != "ace0f15d2a851c383fe4657afc3840d6ffe30ad0":
-        #raise Exception("An unknown error has occurred downloading and creating the certificate.")
-        pass
+    if hashlib.sha1(cert).hexdigest() != "e583bdcdb8d4f5c06decd7ca2be46b11e6cfbac0":
+        raise Exception("An unknown error has occurred downloading and creating the certificate.")
     return cert
 
 
